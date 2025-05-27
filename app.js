@@ -61,6 +61,83 @@ app.delete("/albums/:id", (req, res) => {
   });
 });
 
+app.post("/auth", (req, res) => {
+  const { pseudo, email, password } = req.body;
+
+  if (!pseudo || !email || !password) {
+    return res.status(400).json({ error: "Champs manquants" });
+  }
+
+  // Vérifie si l'utilisateur existe déjà
+  const queryCheck = `SELECT * FROM users WHERE email = ?`;
+  db.get(queryCheck, [email], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (user) {
+      // L'utilisateur existe -> vérifier le mot de passe
+      if (user.password === password) {
+        res.json({ message: "Connexion réussie", user });
+      } else {
+        res.status(401).json({ error: "Mot de passe incorrect" });
+      }
+    } else {
+      // L'utilisateur n'existe pas → on l'inscrit
+      const insertQuery = `INSERT INTO users (pseudo, email, password) VALUES (?, ?, ?)`;
+      db.run(insertQuery, [pseudo, email, password], function (err) {
+        if (err) return res.status(500).json({ error: err.message });
+
+        res.status(201).json({
+          message: "Inscription réussie",
+          user: { id: this.lastID, pseudo, email },
+        });
+      });
+    }
+  });
+});
+
+// 🔹 Route d'inscription
+app.post("/register", (req, res) => {
+  const { pseudo, email, password } = req.body;
+
+  if (!pseudo || !email || !password) {
+    return res.status(400).json({ error: "Champs manquants" });
+  }
+
+  const insertQuery = `INSERT INTO users (pseudo, email, password) VALUES (?, ?, ?)`;
+  db.run(insertQuery, [pseudo, email, password], function (err) {
+    if (err) return res.status(500).json({ error: err.message });
+
+    res.status(201).json({
+      message: "Inscription réussie",
+      user: { id: this.lastID, pseudo, email },
+    });
+  });
+});
+
+// 🔹 Route de connexion
+app.post("/login", (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "Champs manquants" });
+  }
+
+  const queryCheck = `SELECT * FROM users WHERE email = ?`;
+  db.get(queryCheck, [email], (err, user) => {
+    if (err) return res.status(500).json({ error: err.message });
+
+    if (!user) {
+      return res.status(401).json({ error: "Utilisateur non trouvé" });
+    }
+
+    if (user.password === password) {
+      res.json({ message: "Connexion réussie", user });
+    } else {
+      res.status(401).json({ error: "Mot de passe incorrect" });
+    }
+  });
+});
+
 // Lancer le serveur
 app.listen(port, () => {
   console.log(`Serveur Express écoutant sur le port ${port}`);
